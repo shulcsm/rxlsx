@@ -217,38 +217,42 @@ impl<'a> WorksheetWriter<'a> {
         }
     }
 
-    fn write_cell(&mut self, row_index: usize, column_index: usize) {
+    fn write_cell(&self, buff: &mut Vec<u8>, row_index: usize, column_index: usize) {
         let coord = index_to_coord(column_index, row_index);
 
         if let Some(value) = self.inner.cells.get(&(row_index, column_index)) {
             match value {
                 CellValue::Number(value) => {
                     let r = format!("<c r=\"{}\"><v>{}</v></c>", coord, value);
-                    self.writer.write_all(r.as_bytes()).unwrap();
+                    buff.write(r.as_bytes()).unwrap();
                 }
             };
         }
     }
 
-    fn write_row(&mut self, row_index: usize) {
+    fn write_row(&self, buff: &mut Vec<u8>, row_index: usize) {
         let head = format!("<row r=\"{}\">", row_index);
 
-        self.writer.write_all(head.as_bytes()).unwrap();
+        buff.write(head.as_bytes()).unwrap();
 
         for column_index in 1..=self.inner.max_col_idx {
-            self.write_cell(row_index, column_index)
+            self.write_cell(buff, row_index, column_index)
         }
 
         let tail = br#"</row>"#;
-        self.writer.write_all(tail).unwrap();
+
+        buff.write(tail).unwrap();
     }
 
     fn write_sheet_data(&mut self) {
         let head = br#"<sheetData>"#;
         self.writer.write_all(head).unwrap();
 
+        let mut buff: Vec<u8> = Vec::new();
         for row_index in 1..=self.inner.max_row_idx {
-            self.write_row(row_index);
+            self.write_row(&mut buff, row_index);
+            self.writer.write_all(&buff).unwrap();
+            buff.clear();
         }
 
         let tail = br#"</sheetData>"#;
