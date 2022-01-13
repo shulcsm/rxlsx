@@ -1,0 +1,15 @@
+[package]
+name = "rxlsx"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+name = "rxlsx"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.15.1", features = ["extension-module"] }
+zip = "0.5"
+# quick-xml = "0.22.0"
+chrono = "0.4.19"
+# serde = "1"
