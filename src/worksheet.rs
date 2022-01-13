@@ -28,19 +28,12 @@ class DataTypes(object):
 
 #[derive(Debug, Clone, PartialEq, FromPyObject)]
 pub enum CellValue {
-    // Bool(bool),
-    // Str(String),
+    Bool(bool),
+    Str(String),
     Number(f64),
     // Date
     // Currency
 }
-
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct Cell {
-//     value: Value,
-//     // format: Format,
-//     // style: ?
-// }
 
 pub type Cells = HashMap<(usize, usize), CellValue>;
 
@@ -76,6 +69,7 @@ impl Worksheet {
         let cols = values.len();
         for (idx, v) in values.iter().enumerate() {
             let c: CellValue = v.extract().unwrap();
+
             self.cells.insert((next_row, idx + 1), c);
         }
         self.max_row_idx = next_row;

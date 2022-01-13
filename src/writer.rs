@@ -205,6 +205,13 @@ pub fn column_to_letter(index: usize) -> String {
     result.chars().rev().collect()
 }
 
+fn escape_str_value(s: &str) -> String {
+    s.replace("&", "&amp;").replace("<", "&lt;")
+    // let mut p = String::new();
+    // p.extend(s.char_indices().map(|(ind, c)| (ind, dispatch(c))));
+    // p.into_result()
+}
+
 pub fn index_to_coord(column_index: usize, row_index: usize) -> String {
     format!("{}{}", column_to_letter(column_index), row_index)
 }
@@ -224,6 +231,19 @@ impl<'a> WorksheetWriter<'a> {
             match value {
                 CellValue::Number(value) => {
                     let r = format!("<c r=\"{}\"><v>{}</v></c>", coord, value);
+                    buff.write(r.as_bytes()).unwrap();
+                }
+                CellValue::Bool(value) => {
+                    let v = if *value { 1 } else { 0 };
+                    let r = format!("<c r=\"{}\" t=\"b\"><v>{}</v></c>", coord, v);
+                    buff.write(r.as_bytes()).unwrap();
+                }
+                CellValue::Str(value) => {
+                    let r = format!(
+                        "<c r=\"{}\" t=\"str\"><v>{}</v></c>",
+                        coord,
+                        escape_str_value(&value)
+                    );
                     buff.write(r.as_bytes()).unwrap();
                 }
             };

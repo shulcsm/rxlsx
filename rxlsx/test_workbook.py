@@ -1,3 +1,5 @@
+from decimal import Decimal
+from lib2to3.pgen2.token import RPAR
 from rxlsx import Workbook
 
 
@@ -66,8 +68,30 @@ def test_save():
 
     wb = Workbook()
     ws = wb.create_sheet()
-    ws.append([1, 2, 3])
-    ws.append([4, 5, 6])
+    ROW = [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        True,
+        False,
+        0.1,
+        Decimal("0.2"),
+        "foo",
+        "bar",
+        "baz",
+        "qux",
+        "fred",
+        "thud",
+    ]
+    ws.append(ROW)
+    ws.append(list(reversed(ROW)))
 
     string_path = "./a.zip"  # os.devnull
     wb.save(string_path)
