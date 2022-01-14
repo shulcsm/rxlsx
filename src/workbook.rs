@@ -7,7 +7,6 @@ use std::collections::HashMap;
 #[pyclass]
 pub struct Workbook {
     pub worksheets: Vec<Py<Worksheet>>,
-    //  shared_strings
     //     )  # "_styles", "_items", "_has_macros", "_encoding", "_writer")
 }
 
@@ -33,7 +32,6 @@ impl Workbook {
         let ws = Py::new(
             py,
             Worksheet {
-                parent: self_.clone(),
                 title: title.unwrap_or("Sheet".to_owned()),
                 max_row_idx: 0,
                 max_col_idx: 0,

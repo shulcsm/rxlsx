@@ -89,7 +89,10 @@ def test_save():
         "fred",
         "thud",
         "=SUM(1+1)",
-        "=SUM(A1+B1)"
+        "=SUM(A1+B1)",
+        "string with space",
+        "string with escapes < &",
+        "" # empty string
     ]
     ws.append(ROW)
     ws.append(list(reversed(ROW)))

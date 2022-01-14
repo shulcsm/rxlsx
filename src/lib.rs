@@ -1,5 +1,6 @@
 use pyo3::prelude::*;
 mod cell;
+mod string_storage;
 mod types;
 mod util;
 mod workbook;

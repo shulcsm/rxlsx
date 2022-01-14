@@ -7,12 +7,11 @@ use pyo3::prelude::*;
 #[derive(Debug)]
 pub enum CellValue {
     Bool(bool),
-    InlineString(String),
+    String(String), // InlineString | SharedString
     Number(f64),
     // Date
     // Currency
     Formula(String),
-    // SharedString
     // Error?
 }
 
@@ -32,7 +31,7 @@ impl<'source> FromPyObject<'source> for CellValue {
                 if string.starts_with("=") {
                     return Ok(CellValue::Formula(string[1..].into()));
                 } else {
-                    return Ok(CellValue::InlineString(string.into()));
+                    return Ok(CellValue::String(string.into()));
                 }
             } else if ob_type == PYTHON_TYPES.bool {
                 return Ok(CellValue::Bool(ob.extract()?));

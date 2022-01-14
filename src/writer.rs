@@ -1,4 +1,5 @@
 use crate::cell::CellValue;
+use crate::string_storage::StringStorage;
 use crate::util::Zip;
 use crate::workbook::Workbook;
 use crate::worksheet::Worksheet;
@@ -58,7 +59,7 @@ impl<'a> WorkbookWriter<'a> {
     fn write_content_type(&mut self) {
         self.file("[Content_Types].xml");
 
-        // @TODO: macros, themes, shared strings
+        // @TODO: macros, themes
 
         let head = br#"<?xml version="1.0" encoding="UTF-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -66,6 +67,7 @@ impl<'a> WorkbookWriter<'a> {
     <Default Extension="xml" ContentType="application/xml" />
     <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
     <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+    <Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
     <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml" />
     <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>"#;
         self.writer.write(head).unwrap();
@@ -122,7 +124,6 @@ impl<'a> WorkbookWriter<'a> {
         let gil = Python::acquire_gil();
         let py = gil.python();
 
-        // @TODO should rId not collide with rels?
         for (idx, sheet) in self.inner.worksheets.iter().enumerate() {
             let wb = format!(
                 "<sheet name=\"{}\" sheetId=\"{}\" r:id=\"rId{}\"/>",
@@ -143,21 +144,47 @@ impl<'a> WorkbookWriter<'a> {
         self.file("xl/_rels/workbook.xml.rels");
 
         // @TODO <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
-        // @TODO shared strings
         let head = br#"<?xml version="1.0" encoding="UTF-8"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>"#;
 
         self.writer.write(head).unwrap();
 
-        for idx in 1..=self.inner.worksheets.len() {
+        let total = self.inner.worksheets.len();
+        for idx in 1..=total {
             let wb = format!("<Relationship Id=\"rId{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet{}.xml\"/>", idx + 2, idx);
             self.writer.write(wb.as_bytes()).unwrap();
         }
 
+        let shared_idx = total + 3;
+        let shared = format!("<Relationship Id=\"rId{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings\" Target=\"sharedStrings.xml\"/>", shared_idx);
+        self.writer.write(shared.as_bytes()).unwrap();
+
         let tail = br#"
 </Relationships>"#;
 
+        self.writer.write(tail).unwrap();
+    }
+
+    fn write_xls_shared_strings(&mut self, strings: StringStorage) {
+        self.file("xl/sharedStrings.xml");
+
+        let head = br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#;
+        self.writer.write(head).unwrap();
+
+        let wb = format!("<sst xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" count=\"{}\" uniqueCount=\"{}\">", strings.size, strings.total);
+        self.writer.write(wb.as_bytes()).unwrap();
+
+        for val in strings.index.keys() {
+            let tag = format!(
+                "<si><t xml:space=\"preserve\">{}</t></si>",
+                escape_str_value(val)
+            );
+            self.writer.write(tag.as_bytes()).unwrap();
+        }
+
+        let tail = br#"
+</sst>"#;
         self.writer.write(tail).unwrap();
     }
 
@@ -174,15 +201,19 @@ impl<'a> WorkbookWriter<'a> {
         let gil = Python::acquire_gil();
         let py = gil.python();
 
+        // ideally we want to own strings on storage, keep in on workbook and manage on sheet mutations
+        let mut strings = StringStorage::new();
+
         for (idx, pyws) in self.inner.worksheets.iter().enumerate() {
             let id = idx + 1;
             let file_name = format!("xl/worksheets/sheet{}.xml", id);
             self.file(&file_name);
 
             let ws = pyws.borrow(py);
-            let sheet_writer = WorksheetWriter::new(ws, &mut self.writer);
+            let sheet_writer = WorksheetWriter::new(ws, &mut self.writer, &mut strings);
             sheet_writer.save()?;
         }
+        self.write_xls_shared_strings(strings);
         Ok(())
     }
 }
@@ -190,6 +221,7 @@ impl<'a> WorkbookWriter<'a> {
 pub struct WorksheetWriter<'a> {
     inner: PyRef<'a, Worksheet>,
     writer: &'a mut Zip,
+    strings: &'a mut StringStorage,
 }
 
 pub fn column_to_letter(index: usize) -> String {
@@ -218,36 +250,44 @@ pub fn index_to_coord(column_index: usize, row_index: usize) -> String {
 }
 
 impl<'a> WorksheetWriter<'a> {
-    pub fn new(worksheet: PyRef<'a, Worksheet>, writer: &'a mut Zip) -> Self {
+    pub fn new(
+        worksheet: PyRef<'a, Worksheet>,
+        writer: &'a mut Zip,
+        strings: &'a mut StringStorage,
+    ) -> Self {
         WorksheetWriter {
             inner: worksheet,
             writer,
+            strings,
         }
     }
 
-    fn write_cell(&self, buff: &mut Vec<u8>, row_index: usize, column_index: usize) {
+    fn write_cell(&mut self, buff: &mut Vec<u8>, row_index: usize, column_index: usize) {
         let coord = index_to_coord(column_index, row_index);
 
         if let Some(value) = self.inner.cells.get(&(row_index, column_index)) {
             match value {
-                CellValue::Number(value) => {
+                CellValue::Number(ref value) => {
                     let r = format!("<c r=\"{}\"><v>{}</v></c>", coord, value);
                     buff.write(r.as_bytes()).unwrap();
                 }
-                CellValue::Bool(value) => {
+                CellValue::Bool(ref value) => {
                     let v = if *value { 1 } else { 0 };
                     let r = format!("<c r=\"{}\" t=\"b\"><v>{}</v></c>", coord, v);
                     buff.write(r.as_bytes()).unwrap();
                 }
-                CellValue::InlineString(value) => {
-                    let r = format!(
-                        "<c r=\"{}\" t=\"str\"><v>{}</v></c>",
-                        coord,
-                        escape_str_value(&value)
-                    );
+                CellValue::String(ref value) => {
+                    let idx = self.strings.insert(value.to_string());
+                    let r = format!("<c r=\"{}\" t=\"s\"><v>{}</v></c>", coord, idx);
+                    // inline string
+                    // let r = format!(
+                    //     "<c r=\"{}\" t=\"str\"><v>{}</v></c>",
+                    //     coord,
+                    //     escape_str_value(&value)
+                    // );
                     buff.write(r.as_bytes()).unwrap();
                 }
-                CellValue::Formula(value) => {
+                CellValue::Formula(ref value) => {
                     let r = format!(
                         "<c r=\"{}\" t=\"str\"><f>{}</f></c>",
                         coord,
@@ -259,7 +299,7 @@ impl<'a> WorksheetWriter<'a> {
         }
     }
 
-    fn write_row(&self, buff: &mut Vec<u8>, row_index: usize) {
+    fn write_row(&mut self, buff: &mut Vec<u8>, row_index: usize) {
         let head = format!("<row r=\"{}\">", row_index);
 
         buff.write(head.as_bytes()).unwrap();
