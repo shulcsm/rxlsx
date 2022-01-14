@@ -1,6 +1,7 @@
+use crate::cell::CellValue;
 use crate::util::Zip;
 use crate::workbook::Workbook;
-use crate::worksheet::{CellValue, Worksheet};
+use crate::worksheet::Worksheet;
 use pyo3::prelude::*;
 use std::io::Write;
 
@@ -207,9 +208,6 @@ pub fn column_to_letter(index: usize) -> String {
 
 fn escape_str_value(s: &str) -> String {
     s.replace("&", "&amp;").replace("<", "&lt;")
-    // let mut p = String::new();
-    // p.extend(s.char_indices().map(|(ind, c)| (ind, dispatch(c))));
-    // p.into_result()
 }
 
 pub fn index_to_coord(column_index: usize, row_index: usize) -> String {
@@ -238,7 +236,7 @@ impl<'a> WorksheetWriter<'a> {
                     let r = format!("<c r=\"{}\" t=\"b\"><v>{}</v></c>", coord, v);
                     buff.write(r.as_bytes()).unwrap();
                 }
-                CellValue::Str(value) => {
+                CellValue::InlineString(value) => {
                     let r = format!(
                         "<c r=\"{}\" t=\"str\"><v>{}</v></c>",
                         coord,

@@ -1,5 +1,4 @@
 from decimal import Decimal
-from lib2to3.pgen2.token import RPAR
 from rxlsx import Workbook
 
 

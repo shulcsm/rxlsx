@@ -311,6 +311,7 @@ name = "rxlsx"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "once_cell",
  "pyo3",
  "zip",
 ]

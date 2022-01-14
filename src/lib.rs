@@ -1,4 +1,6 @@
 use pyo3::prelude::*;
+mod cell;
+mod types;
 mod util;
 mod workbook;
 mod worksheet;
