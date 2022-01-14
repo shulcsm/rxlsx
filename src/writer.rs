@@ -244,6 +244,14 @@ impl<'a> WorksheetWriter<'a> {
                     );
                     buff.write(r.as_bytes()).unwrap();
                 }
+                CellValue::Formula(value) => {
+                    let r = format!(
+                        "<c r=\"{}\" t=\"str\"><f>{}</f></c>",
+                        coord,
+                        escape_str_value(&value)
+                    );
+                    buff.write(r.as_bytes()).unwrap();
+                }
             };
         }
     }

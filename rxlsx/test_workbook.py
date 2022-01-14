@@ -88,6 +88,8 @@ def test_save():
         "qux",
         "fred",
         "thud",
+        "=SUM(1+1)",
+        "=SUM(A1+B1)"
     ]
     ws.append(ROW)
     ws.append(list(reversed(ROW)))

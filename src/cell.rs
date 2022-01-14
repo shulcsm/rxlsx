@@ -11,7 +11,7 @@ pub enum CellValue {
     Number(f64),
     // Date
     // Currency
-    // Formula
+    Formula(String),
     // SharedString
     // Error?
 }
@@ -28,7 +28,12 @@ impl<'source> FromPyObject<'source> for CellValue {
             } else if ob_type == PYTHON_TYPES.decimal {
                 return Ok(CellValue::Number(ob.extract()?));
             } else if ob_type == PYTHON_TYPES.str {
-                return Ok(CellValue::InlineString(ob.extract()?));
+                let string: &str = ob.extract()?;
+                if string.starts_with("=") {
+                    return Ok(CellValue::Formula(string[1..].into()));
+                } else {
+                    return Ok(CellValue::InlineString(string.into()));
+                }
             } else if ob_type == PYTHON_TYPES.bool {
                 return Ok(CellValue::Bool(ob.extract()?));
             }

@@ -27,6 +27,7 @@ ROW = [
     "qux",
     "fred",
     "thud",
+    "=SUM(1+1)"
 ]
 
 data = [ROW] * ROWS
