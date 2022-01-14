@@ -193,17 +193,20 @@ pub struct WorksheetWriter<'a> {
 }
 
 pub fn column_to_letter(index: usize) -> String {
-    let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    let mut result = String::from("");
-    let mut work = index - 1;
-    loop {
-        result.push(alphabet.chars().nth(work % 26).unwrap());
-        if work < 26 {
-            break;
+    // 0 indexed
+    let mut col = index - 1;
+    if col < 26 {
+        ((b'A' + col as u8) as char).to_string()
+    } else {
+        let mut rev = String::new();
+        while col >= 26 {
+            let c = col % 26;
+            rev.push((b'A' + c as u8) as char);
+            col -= c;
+            col /= 26;
         }
-        work = (work / 26) - 1;
+        rev.chars().rev().collect()
     }
-    result.chars().rev().collect()
 }
 
 fn escape_str_value(s: &str) -> String {
@@ -211,7 +214,7 @@ fn escape_str_value(s: &str) -> String {
 }
 
 pub fn index_to_coord(column_index: usize, row_index: usize) -> String {
-    format!("{}{}", column_to_letter(column_index), row_index)
+    column_to_letter(column_index) + row_index.to_string().as_str()
 }
 
 impl<'a> WorksheetWriter<'a> {
