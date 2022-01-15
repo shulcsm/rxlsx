@@ -1,17 +1,16 @@
 use std::collections::BTreeMap;
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug)]
-pub struct StringStorage {
+pub struct Strings {
     pub index: BTreeMap<String, usize>,
-    // Total count of strings (including doubles).
     pub total: usize,
-    //  Size of the SST (count of unique strings).
     pub size: usize,
 }
 
-impl StringStorage {
+impl Strings {
     pub fn new() -> Self {
-        StringStorage {
+        Strings {
             index: BTreeMap::new(),
             total: 0,
             size: 0,
@@ -32,3 +31,18 @@ impl StringStorage {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct Shared {
+    pub strings: Strings,
+}
+
+impl Shared {
+    pub fn new() -> Self {
+        Shared {
+            strings: Strings::new(),
+        }
+    }
+}
+
+pub type SharedRef = Arc<RwLock<Shared>>;

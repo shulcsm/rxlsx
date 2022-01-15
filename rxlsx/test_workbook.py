@@ -2,16 +2,16 @@ from decimal import Decimal
 from rxlsx import Workbook
 
 
-def test_sheet_title():
+def test_sheet_name():
     wb = Workbook()
     ws1 = wb.create_sheet()
-    assert ws1.title == "Sheet"
+    assert ws1.name == "Sheet"
 
     ws2 = wb.create_sheet("Testerion")
-    assert ws2.title == "Testerion"
+    assert ws2.name == "Testerion"
 
-    ws3 = wb.create_sheet(title="Keyword title")
-    assert ws3.title == "Keyword title"
+    ws3 = wb.create_sheet(name="Keyword title")
+    assert ws3.name == "Keyword title"
 
 
 def test_sheet_index():
@@ -92,7 +92,7 @@ def test_save():
         "=SUM(A1+B1)",
         "string with space",
         "string with escapes < &",
-        "" # empty string
+        "",  # empty string
     ]
     ws.append(ROW)
     ws.append(list(reversed(ROW)))

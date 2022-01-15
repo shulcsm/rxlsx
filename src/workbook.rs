@@ -1,13 +1,14 @@
+use crate::shared::{Shared, SharedRef};
 use crate::util::zip_from_path_or_file;
 use crate::worksheet::Worksheet;
 use crate::writer::WorkbookWriter;
 use pyo3::prelude::*;
-use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 #[pyclass]
 pub struct Workbook {
     pub worksheets: Vec<Py<Worksheet>>,
-    //     )  # "_styles", "_items", "_has_macros", "_encoding", "_writer")
+    pub shared: SharedRef,
 }
 
 #[pymethods]
@@ -16,6 +17,7 @@ impl Workbook {
     fn new() -> Workbook {
         Workbook {
             worksheets: Vec::new(),
+            shared: Arc::new(RwLock::new(Shared::new())),
         }
     }
 
@@ -24,27 +26,22 @@ impl Workbook {
     }
 
     fn create_sheet(
-        self_: Py<Self>,
+        &mut self,
         py: Python,
-        title: Option<String>,
+        name: Option<String>,
         index: Option<usize>,
     ) -> Py<Worksheet> {
         let ws = Py::new(
             py,
-            Worksheet {
-                title: title.unwrap_or("Sheet".to_owned()),
-                max_row_idx: 0,
-                max_col_idx: 0,
-                cells: HashMap::new(),
-            },
+            Worksheet::new(name.unwrap_or("Sheet".to_owned()), self.shared.clone()),
         )
         .unwrap();
-        let mut s: PyRefMut<Self> = self_.extract(py).unwrap();
+
         if let Some(i) = index {
             // @TODO ensure len or error
-            s.worksheets.insert(i, ws.clone());
+            self.worksheets.insert(i, ws.clone());
         } else {
-            s.worksheets.push(ws.clone());
+            self.worksheets.push(ws.clone());
         }
         ws
     }

@@ -1,5 +1,4 @@
 use crate::cell::CellValue;
-use crate::string_storage::StringStorage;
 use crate::util::Zip;
 use crate::workbook::Workbook;
 use crate::worksheet::Worksheet;
@@ -127,7 +126,7 @@ impl<'a> WorkbookWriter<'a> {
         for (idx, sheet) in self.inner.worksheets.iter().enumerate() {
             let wb = format!(
                 "<sheet name=\"{}\" sheetId=\"{}\" r:id=\"rId{}\"/>",
-                sheet.borrow(py).title,
+                sheet.borrow(py).name,
                 idx + 1,
                 idx + 3 // 1 theme, 2 styles
             );
@@ -166,7 +165,9 @@ impl<'a> WorkbookWriter<'a> {
         self.writer.write(tail).unwrap();
     }
 
-    fn write_xls_shared_strings(&mut self, strings: StringStorage) {
+    fn write_xls_shared_strings(&mut self) {
+        let strings = &self.inner.shared.read().unwrap().strings;
+
         self.file("xl/sharedStrings.xml");
 
         let head = br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#;
@@ -201,19 +202,16 @@ impl<'a> WorkbookWriter<'a> {
         let gil = Python::acquire_gil();
         let py = gil.python();
 
-        // ideally we want to own strings on storage, keep in on workbook and manage on sheet mutations
-        let mut strings = StringStorage::new();
-
         for (idx, pyws) in self.inner.worksheets.iter().enumerate() {
             let id = idx + 1;
             let file_name = format!("xl/worksheets/sheet{}.xml", id);
             self.file(&file_name);
 
             let ws = pyws.borrow(py);
-            let sheet_writer = WorksheetWriter::new(ws, &mut self.writer, &mut strings);
+            let sheet_writer = WorksheetWriter::new(ws, &mut self.writer);
             sheet_writer.save()?;
         }
-        self.write_xls_shared_strings(strings);
+        self.write_xls_shared_strings();
         Ok(())
     }
 }
@@ -221,7 +219,6 @@ impl<'a> WorkbookWriter<'a> {
 pub struct WorksheetWriter<'a> {
     inner: PyRef<'a, Worksheet>,
     writer: &'a mut Zip,
-    strings: &'a mut StringStorage,
 }
 
 pub fn column_to_letter(index: usize) -> String {
@@ -250,15 +247,10 @@ pub fn index_to_coord(column_index: usize, row_index: usize) -> String {
 }
 
 impl<'a> WorksheetWriter<'a> {
-    pub fn new(
-        worksheet: PyRef<'a, Worksheet>,
-        writer: &'a mut Zip,
-        strings: &'a mut StringStorage,
-    ) -> Self {
+    pub fn new(worksheet: PyRef<'a, Worksheet>, writer: &'a mut Zip) -> Self {
         WorksheetWriter {
             inner: worksheet,
             writer,
-            strings,
         }
     }
 
@@ -276,15 +268,16 @@ impl<'a> WorksheetWriter<'a> {
                     let r = format!("<c r=\"{}\" t=\"b\"><v>{}</v></c>", coord, v);
                     buff.write(r.as_bytes()).unwrap();
                 }
-                CellValue::String(ref value) => {
-                    let idx = self.strings.insert(value.to_string());
-                    let r = format!("<c r=\"{}\" t=\"s\"><v>{}</v></c>", coord, idx);
-                    // inline string
-                    // let r = format!(
-                    //     "<c r=\"{}\" t=\"str\"><v>{}</v></c>",
-                    //     coord,
-                    //     escape_str_value(&value)
-                    // );
+                CellValue::SharedString(value) => {
+                    let r = format!("<c r=\"{}\" t=\"s\"><v>{}</v></c>", coord, value);
+                    buff.write(r.as_bytes()).unwrap();
+                }
+                CellValue::InlineString(ref value) => {
+                    let r = format!(
+                        "<c r=\"{}\" t=\"str\"><v>{}</v></c>",
+                        coord,
+                        escape_str_value(value)
+                    );
                     buff.write(r.as_bytes()).unwrap();
                 }
                 CellValue::Formula(ref value) => {
