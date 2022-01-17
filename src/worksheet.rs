@@ -56,11 +56,19 @@ impl Worksheet {
     }
 
     fn insert(&mut self, row_index: usize, column_index: usize, value: &PyAny) {
-        let c: CellValue = cell_value(value, &mut self.shared.write().unwrap().strings).unwrap();
-        self.cells.insert((row_index, column_index), c);
+        if let Some(c) = cell_value(value, &mut self.shared.write().unwrap().strings).unwrap() {
+            self.cells.insert((row_index, column_index), c);
+            if row_index > self.max_row_idx {
+                self.max_row_idx = row_index;
+            }
+            if column_index > self.max_col_idx {
+                self.max_col_idx = column_index;
+            }
+        }
     }
 
     // should be any iterable but TypeError: argument 'values': 'list' object cannot be converted to 'Iterator'
+    // should accept tuple
     fn append(&mut self, values: &PyList) {
         let strings = &mut self.shared.write().unwrap().strings;
 
@@ -68,8 +76,9 @@ impl Worksheet {
 
         let cols = values.len();
         for (idx, v) in values.iter().enumerate() {
-            let c: CellValue = cell_value(v, strings).unwrap();
-            self.cells.insert((next_row, idx + 1), c);
+            if let Some(c) = cell_value(v, strings).unwrap() {
+                self.cells.insert((next_row, idx + 1), c);
+            }
         }
         self.max_row_idx = next_row;
         if cols > self.max_col_idx {

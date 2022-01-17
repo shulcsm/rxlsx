@@ -1,6 +1,6 @@
 from decimal import Decimal
 from rxlsx import Workbook, Column
-
+import datetime
 
 def test_sheet_name():
     wb = Workbook()
@@ -72,6 +72,7 @@ def test_save():
     ws.column(3).width = 24
     ws.column(4).width = 32
 
+    date = datetime.date(2021, 11, 1)
     ROW = [
         1,
         2,
@@ -97,7 +98,10 @@ def test_save():
         "=SUM(A1+B1)",
         "string with space",
         "string with escapes < &",
+        None, # none
         "",  # empty string
+        date
+        
     ]
     ws.append(ROW)
     ws.append(list(reversed(ROW)))

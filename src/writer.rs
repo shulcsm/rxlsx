@@ -263,6 +263,10 @@ impl<'a> WorksheetWriter<'a> {
                     let r = format!("<c r=\"{}\"><v>{}</v></c>", coord, value);
                     buff.write(r.as_bytes()).unwrap();
                 }
+                // CellValue::Date(ref value) => {
+                //     let r = format!("<c r=\"{}\"><v>{}</v></c>", coord, value);
+                //     buff.write(r.as_bytes()).unwrap();
+                // }
                 CellValue::Bool(ref value) => {
                     let v = if *value { 1 } else { 0 };
                     let r = format!("<c r=\"{}\" t=\"b\"><v>{}</v></c>", coord, v);
