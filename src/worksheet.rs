@@ -34,22 +34,20 @@ impl Worksheet {
 #[pymethods]
 impl Worksheet {
     fn insert(&mut self, row_index: usize, column_index: usize, value: &PyAny) {
-        let mut shared = self.shared.write().unwrap();
-        let strings = &mut shared.strings;
-
-        strings.insert("a".into());
-
-        let c: CellValue = cell_value(value, strings).unwrap();
+        let c: CellValue = cell_value(value, &mut self.shared.write().unwrap().strings).unwrap();
         self.cells.insert((row_index, column_index), c);
     }
 
     // should be any iterable but TypeError: argument 'values': 'list' object cannot be converted to 'Iterator'
     fn append(&mut self, values: &PyList) {
+        let strings = &mut self.shared.write().unwrap().strings;
+
         let next_row = self.max_row_idx + 1;
 
         let cols = values.len();
         for (idx, v) in values.iter().enumerate() {
-            self.insert(next_row, idx + 1, v)
+            let c: CellValue = cell_value(v, strings).unwrap();
+            self.cells.insert((next_row, idx + 1), c);
         }
         self.max_row_idx = next_row;
         if cols > self.max_col_idx {
