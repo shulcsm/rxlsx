@@ -327,6 +327,37 @@ impl<'a> WorksheetWriter<'a> {
     xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">"#;
         self.writer.write_all(head).unwrap();
 
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+
+        if !self.inner.columns.is_empty() {
+            self.writer.write_all(br#"<cols>"#).unwrap();
+            for column_index in 1..=self.inner.max_col_idx {
+                if let Some(col) = self.inner.columns.get(&column_index) {
+                    let c = col.borrow(py);
+
+                    self.writer.write_all(
+                        format!(
+                            "<col min=\"{}\" max=\"{}\" width=\"{}\" customWidth=\"1\"/>\n",
+                            &column_index, &column_index, c.width
+                        )
+                        .as_bytes(),
+                    )?;
+                } else {
+                    // is this necessary?
+
+                    self.writer.write_all(
+                        format!(
+                            "<col min=\"{}\" max=\"{}\" />\n",
+                            &column_index, &column_index
+                        )
+                        .as_bytes(),
+                    )?;
+                }
+            }
+            self.writer.write_all(br#"</cols>"#).unwrap();
+        }
+
         self.write_sheet_data();
 
         let tail = br#"</worksheet>"#;

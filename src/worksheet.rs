@@ -4,6 +4,14 @@ use pyo3::prelude::*;
 use pyo3::types::PyList;
 use std::collections::HashMap;
 
+#[pyclass]
+pub struct Column {
+    #[pyo3(get, set)]
+    pub width: f32,
+    // bestFit: bool,
+    // collapsed: bool,
+}
+
 pub type Cells = HashMap<(usize, usize), CellValue>;
 
 #[pyclass]
@@ -17,6 +25,8 @@ pub struct Worksheet {
     // @TODO private
     pub cells: Cells,
     shared: SharedRef,
+    // @TODO private
+    pub columns: HashMap<usize, Py<Column>>,
 }
 
 impl Worksheet {
@@ -27,12 +37,24 @@ impl Worksheet {
             max_col_idx: 0,
             cells: HashMap::new(),
             shared,
+            columns: HashMap::new(),
         }
     }
 }
 
 #[pymethods]
 impl Worksheet {
+    fn column(&mut self, py: Python, column_index: usize) -> Py<Column> {
+        if let Some(col) = self.columns.get(&column_index) {
+            col.clone()
+        } else {
+            let c = Column { width: 8.0 };
+            let col = Py::new(py, c).unwrap();
+            self.columns.insert(column_index, col.clone());
+            col
+        }
+    }
+
     fn insert(&mut self, row_index: usize, column_index: usize, value: &PyAny) {
         let c: CellValue = cell_value(value, &mut self.shared.write().unwrap().strings).unwrap();
         self.cells.insert((row_index, column_index), c);

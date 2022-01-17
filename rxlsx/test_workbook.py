@@ -1,5 +1,5 @@
 from decimal import Decimal
-from rxlsx import Workbook
+from rxlsx import Workbook, Column
 
 
 def test_sheet_name():
@@ -67,6 +67,11 @@ def test_save():
 
     wb = Workbook()
     ws = wb.create_sheet()
+    ws.column(1).width = 6
+    ws.column(2).width = 12
+    ws.column(3).width = 24
+    ws.column(4).width = 32
+
     ROW = [
         1,
         2,

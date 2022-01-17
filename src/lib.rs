@@ -11,5 +11,6 @@ mod writer;
 fn rxlsx(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<workbook::Workbook>()?;
     m.add_class::<worksheet::Worksheet>()?;
+    m.add_class::<worksheet::Column>()?;
     Ok(())
 }
