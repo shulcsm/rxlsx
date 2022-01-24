@@ -107,7 +107,6 @@ impl Writeable {
                 "Object does not have a .seek() method.",
             ));
         }
-        dbg!("writable");
         Ok(Writeable::PythonFile(PyFile {
             inner: path_or_file,
         }))
@@ -120,4 +119,43 @@ pub fn zip_from_path_or_file(path_or_file: PyObject) -> PyResult<Zip> {
     let writeable = Writeable::new(path_or_file)?;
 
     Ok(zip::ZipWriter::new(writeable))
+}
+
+pub fn escape_str_value(s: &str) -> String {
+    s.replace("&", "&amp;").replace("<", "&lt;")
+}
+
+pub fn column_to_letter(index: usize) -> String {
+    // 0 indexed
+    let mut col = (index - 1) as isize;
+
+    if col < 26 {
+        ((b'A' + col as u8) as char).to_string()
+    } else {
+        let mut rev = String::new();
+
+        while col >= 0 {
+            rev.push((b'A' + (col % 26) as u8) as char);
+            col = col / 26 - 1;
+        }
+        rev.chars().rev().collect()
+    }
+}
+
+pub fn index_to_coord(column_index: usize, row_index: usize) -> String {
+    column_to_letter(column_index) + row_index.to_string().as_str()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::column_to_letter;
+    #[test]
+    fn test_column_to_letter() {
+        assert_eq!(column_to_letter(1), "A");
+        assert_eq!(column_to_letter(2), "B");
+        assert_eq!(column_to_letter(3), "C");
+        assert_eq!(column_to_letter(26), "Z");
+        assert_eq!(column_to_letter(27), "AA");
+        assert_eq!(column_to_letter(53), "BA");
+    }
 }

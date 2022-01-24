@@ -1,5 +1,5 @@
 use crate::cell::CellValue;
-use crate::util::Zip;
+use crate::util::{escape_str_value, index_to_coord, Zip};
 use crate::workbook::Workbook;
 use crate::worksheet::Worksheet;
 use pyo3::prelude::*;
@@ -100,12 +100,49 @@ impl<'a> WorkbookWriter<'a> {
     fn write_xl_styles(&mut self) {
         self.file("xl/styles.xml");
 
-        // @TODO actual styles
+        // @TODO actual styles, figure out date styles and numFmts
         let xml = br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" mc:Ignorable="x14ac"></styleSheet>"#;
-
+    xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" mc:Ignorable="x14ac">
+    <fonts count="1">
+        <font>
+            <sz val="12"/>
+            <color theme="1"/>
+            <name val="Calibri"/>
+            <family val="2"/>
+            <scheme val="minor"/>
+        </font>
+    </fonts>
+    <fills count="2">
+        <fill>
+            <patternFill patternType="none"/>
+        </fill>
+        <fill>
+            <patternFill patternType="gray125"/>
+        </fill>
+    </fills>
+    <borders count="1">
+        <border>
+            <left/>
+            <right/>
+            <top/>
+            <bottom/>
+            <diagonal/>
+        </border>
+    </borders>
+    <cellStyleXfs count="1">
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+    </cellStyleXfs>
+    <cellXfs count="2">
+        <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+        <xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+        <xf numFmtId="22" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+    </cellXfs>
+    <cellStyles count="1">
+        <cellStyle name="Normal" xfId="0" builtinId="0"/>
+    </cellStyles>    
+</styleSheet>"#;
         self.writer.write(xml).unwrap();
     }
 
@@ -221,31 +258,6 @@ pub struct WorksheetWriter<'a> {
     writer: &'a mut Zip,
 }
 
-pub fn column_to_letter(index: usize) -> String {
-    // 0 indexed
-    let mut col = index - 1;
-    if col < 26 {
-        ((b'A' + col as u8) as char).to_string()
-    } else {
-        let mut rev = String::new();
-        while col >= 26 {
-            let c = col % 26;
-            rev.push((b'A' + c as u8) as char);
-            col -= c;
-            col /= 26;
-        }
-        rev.chars().rev().collect()
-    }
-}
-
-fn escape_str_value(s: &str) -> String {
-    s.replace("&", "&amp;").replace("<", "&lt;")
-}
-
-pub fn index_to_coord(column_index: usize, row_index: usize) -> String {
-    column_to_letter(column_index) + row_index.to_string().as_str()
-}
-
 impl<'a> WorksheetWriter<'a> {
     pub fn new(worksheet: PyRef<'a, Worksheet>, writer: &'a mut Zip) -> Self {
         WorksheetWriter {
@@ -263,10 +275,10 @@ impl<'a> WorksheetWriter<'a> {
                     let r = format!("<c r=\"{}\"><v>{}</v></c>", coord, value);
                     buff.write(r.as_bytes()).unwrap();
                 }
-                // CellValue::Date(ref value) => {
-                //     let r = format!("<c r=\"{}\"><v>{}</v></c>", coord, value);
-                //     buff.write(r.as_bytes()).unwrap();
-                // }
+                CellValue::Date(ref value) => {
+                    let r = format!("<c r=\"{}\" s=\"1\"><v>{}</v></c>", coord, value);
+                    buff.write(r.as_bytes()).unwrap();
+                }
                 CellValue::Bool(ref value) => {
                     let v = if *value { 1 } else { 0 };
                     let r = format!("<c r=\"{}\" t=\"b\"><v>{}</v></c>", coord, v);
